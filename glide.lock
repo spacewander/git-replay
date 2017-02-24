@@ -1,0 +1,14 @@
+hash: a5f1472344756c799d70497eda6a6c3bb46192be6d0d81527428b2498bc0252a
+updated: 2017-02-24T09:58:59.578896147+08:00
+imports:
+- name: github.com/bouk/monkey
+  version: 697673d58359af7ebdcad66f99b81d011359d8ef
+- name: github.com/gizak/termui
+  version: 991cd3d3809135dc24daf6188dc6edcaf3d7d2d9
+- name: github.com/Shopify/go-lua
+  version: 67c3ba03ce822db5f0b4305b83ac822a8bead28a
+- name: github.com/src-d/go-git
+  version: b5da4e98571b02dc106de4f9b2cb2a298489f1b1
+- name: github.com/stretchr/testify
+  version: 4d4bfba8f1d1027c4fdbe371823030df51419987
+testImports: []

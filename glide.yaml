@@ -1,0 +1,8 @@
+package: .
+import:
+- package: github.com/src-d/go-git
+- package: github.com/Shopify/go-lua
+- package: github.com/gizak/termui
+# Packages below is only for test
+- package: github.com/bouk/monkey
+- package: github.com/stretchr/testify
