@@ -1,0 +1,16 @@
+hash: 856dbb302158aa63cd43d304f3055ad2a56fc950f8712730746456bb74d67e94
+updated: 2017-02-25T14:46:01.824151601+08:00
+imports:
+- name: github.com/bouk/monkey
+  version: 697673d58359af7ebdcad66f99b81d011359d8ef
+- name: github.com/jroimartin/gocui
+  version: ed41d1bd2c217d4d1e312c2ee5d2f0c7793a99cc
+- name: github.com/mattn/go-runewidth
+  version: 14207d285c6c197daabb5c9793d63e7af9ab2d50
+- name: github.com/nsf/termbox-go
+  version: 3540b76b9c77679aeffd0a47e00243fb0ce47133
+- name: github.com/Shopify/go-lua
+  version: 67c3ba03ce822db5f0b4305b83ac822a8bead28a
+- name: github.com/src-d/go-git
+  version: 39f43b52a2bdfbc73703e2d09b575d49cd70ede8
+testImports: []
