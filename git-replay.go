@@ -18,11 +18,12 @@ func init() {
 	flag.BoolVar((*bool)(&printVersion), "version", false, "print version")
 }
 
-func sh(cmd string) (returnCode int, output string) {
+func execCmd(cmd string) (returnCode int, output string) {
 	debugLogger.Println(cmd)
-	bytes, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	argv := strings.Split(cmd, " ")
+	bytes, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
 	output = string(bytes)
-	if err != nil || strings.HasSuffix(output, "command not found\n") {
+	if err != nil {
 		errorLogger.Print(output)
 		exitErr, ok := err.(*exec.ExitError)
 		if ok {
@@ -47,7 +48,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	returnCode, output := sh("git log --graph --color --decorate --all --date=iso --oneline")
+	cmd := "git log --graph --color --decorate --all --date=iso --oneline"
+	if len(os.Args) > 1 {
+		cmd += " " + strings.Join(os.Args[1:], " ")
+	}
+	returnCode, output := execCmd(cmd)
 	if returnCode != 0 {
 		os.Exit(returnCode)
 	}
