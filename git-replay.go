@@ -48,7 +48,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cmd := "git log --graph --color --decorate --all --date=iso --oneline"
+	cmd := "git log --graph --color --decorate --all --oneline"
 	if len(os.Args) > 1 {
 		cmd += " " + strings.Join(os.Args[1:], " ")
 	}
@@ -56,5 +56,5 @@ func main() {
 	if returnCode != 0 {
 		os.Exit(returnCode)
 	}
-	DrawUI(output)
+	DrawUI(strings.Split(output, "\n"))
 }
