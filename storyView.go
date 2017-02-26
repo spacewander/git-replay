@@ -6,6 +6,7 @@ import (
 )
 
 type StoryView struct {
+	g *gocui.Gui
 }
 
 func (sv *StoryView) Layout(g *gocui.Gui) error {
@@ -17,4 +18,16 @@ func (sv *StoryView) Layout(g *gocui.Gui) error {
 		fmt.Fprintln(v, "storyView")
 	}
 	return nil
+}
+
+func (sv *StoryView) Show(info *CommitInfo) {
+	sv.g.Execute(func(g *gocui.Gui) error {
+		v, err := g.View("story")
+		if err != nil {
+			return err
+		}
+		v.Clear()
+		fmt.Fprintln(v, info)
+		return nil
+	})
 }

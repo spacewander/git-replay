@@ -22,30 +22,26 @@ func (cv *CommitView) Layout(g *gocui.Gui) error {
 	return nil
 }
 
-func (cv *CommitView) Show(hash string) {
+func (cv *CommitView) Show(commitMessage string) {
 	cv.g.Execute(func(g *gocui.Gui) error {
 		v, err := g.View("commit")
 		if err != nil {
 			return err
 		}
 		v.Clear()
-		commit, err := SearchCommit(hash)
-		if err != nil {
-			return err
-		}
-		commit = subDateToIsoFormat(commit)
-		fmt.Fprintln(v, commit)
+		commitMessage = subDateToIsoFormat(commitMessage)
+		fmt.Fprintln(v, commitMessage)
 		return nil
 	})
 }
 
 // substitute 'Date:   Wed Feb 17 16:20:26 2016 +0800' to
 // 'Date:   2016-02-17 16:20:26 +0800'
-func subDateToIsoFormat(commit string) string {
+func subDateToIsoFormat(commitMessage string) string {
 	re := regexp.MustCompile(`Date:   [\w\s:]+ [-|+]\d{4}`)
 	found := false
 	// One-shot replacer
-	return re.ReplaceAllStringFunc(commit, func(date string) string {
+	return re.ReplaceAllStringFunc(commitMessage, func(date string) string {
 		if found {
 			return date
 		}

@@ -28,7 +28,9 @@ func DrawUI(_gitLogs []string) {
 	scrollView = &ScrollView{
 		g: g,
 	}
-	storyView = &StoryView{}
+	storyView = &StoryView{
+		g: g,
+	}
 	commitView = &CommitView{
 		g: g,
 	}
@@ -70,7 +72,10 @@ func tick(g *gocui.Gui) {
 		case <-scrollTicker.C:
 			hash := re.FindString(gitLogs[lastLogIdx])
 			if hash != "" {
-				commitView.Show(hash)
+				if commit, err := SearchCommit(hash); err == nil {
+					commitView.Show(commit.String())
+					storyView.Show(ExtractDataFromCommit(commit))
+				}
 			}
 			scrollLog(lastLogIdx, topPadding, windowSize)
 			if topPadding > 0 {
