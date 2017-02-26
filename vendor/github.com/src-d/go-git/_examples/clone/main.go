@@ -14,11 +14,11 @@ func main() {
 	directory := os.Args[2]
 
 	// Clone the given repository to the given directory
-	Info("git clone %s %s --recursive", url, directory)
+	Info("git clone %s %s", url, directory)
 
 	r, err := git.PlainClone(directory, false, &git.CloneOptions{
-		URL:               url,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		URL:   url,
+		Depth: 1,
 	})
 
 	CheckIfError(err)

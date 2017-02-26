@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"srcd.works/go-git.v4/config"
-	"srcd.works/go-git.v4/internal/revision"
 	"srcd.works/go-git.v4/plumbing"
 	"srcd.works/go-git.v4/plumbing/object"
 	"srcd.works/go-git.v4/plumbing/storer"
-	"srcd.works/go-git.v4/storage"
 	"srcd.works/go-git.v4/storage/filesystem"
 
 	"srcd.works/go-billy.v1"
@@ -31,16 +28,15 @@ var (
 
 // Repository represents a git repository
 type Repository struct {
-	Storer storage.Storer
-
 	r  map[string]*Remote
+	s  Storer
 	wt billy.Filesystem
 }
 
 // Init creates an empty git repository, based on the given Storer and worktree.
 // The worktree Filesystem is optional, if nil a bare repository is created. If
 // the given storer is not empty ErrRepositoryAlreadyExists is returned
-func Init(s storage.Storer, worktree billy.Filesystem) (*Repository, error) {
+func Init(s Storer, worktree billy.Filesystem) (*Repository, error) {
 	r := newRepository(s, worktree)
 	_, err := r.Reference(plumbing.HEAD, false)
 	switch err {
@@ -58,75 +54,9 @@ func Init(s storage.Storer, worktree billy.Filesystem) (*Repository, error) {
 
 	if worktree == nil {
 		r.setIsBare(true)
-		return r, nil
 	}
 
-	return r, setWorktreeAndStoragePaths(r, worktree)
-}
-
-func setWorktreeAndStoragePaths(r *Repository, worktree billy.Filesystem) error {
-	type fsBased interface {
-		Filesystem() billy.Filesystem
-	}
-
-	// .git file is only created if the storage is file based and the file
-	// system is osfs.OS
-	fs, isFSBased := r.Storer.(fsBased)
-	if !isFSBased {
-		return nil
-	}
-
-	_, isOS := fs.Filesystem().(*osfs.OS)
-	if !isOS {
-		return nil
-	}
-
-	if err := createDotGitFile(worktree, fs.Filesystem()); err != nil {
-		return err
-	}
-
-	return setConfigWorktree(r, worktree, fs.Filesystem())
-}
-
-func createDotGitFile(worktree, storage billy.Filesystem) error {
-	path, err := filepath.Rel(worktree.Base(), storage.Base())
-	if err != nil {
-		path = storage.Base()
-	}
-
-	if path == ".git" {
-		// not needed, since the folder is the default place
-		return nil
-	}
-
-	f, err := worktree.Create(".git")
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-	_, err = fmt.Fprintf(f, "gitdir: %s\n", path)
-	return err
-}
-
-func setConfigWorktree(r *Repository, worktree, storage billy.Filesystem) error {
-	path, err := filepath.Rel(storage.Base(), worktree.Base())
-	if err != nil {
-		path = worktree.Base()
-	}
-
-	if path == ".." {
-		// not needed, since the folder is the default place
-		return nil
-	}
-
-	cfg, err := r.Storer.Config()
-	if err != nil {
-		return err
-	}
-
-	cfg.Core.Worktree = path
-	return r.Storer.SetConfig(cfg)
+	return r, nil
 }
 
 // Open opens a git repository using the given Storer and worktree filesystem,
@@ -134,7 +64,7 @@ func setConfigWorktree(r *Repository, worktree, storage billy.Filesystem) error 
 // The worktree can be nil when the repository being opened is bare, if the
 // repository is a normal one (not bare) and worktree is nil the err
 // ErrWorktreeNotProvided is returned
-func Open(s storage.Storer, worktree billy.Filesystem) (*Repository, error) {
+func Open(s Storer, worktree billy.Filesystem) (*Repository, error) {
 	_, err := s.Reference(plumbing.HEAD)
 	if err == plumbing.ErrReferenceNotFound {
 		return nil, ErrRepositoryNotExists
@@ -159,7 +89,7 @@ func Open(s storage.Storer, worktree billy.Filesystem) (*Repository, error) {
 // Clone a repository into the given Storer and worktree Filesystem with the
 // given options, if worktree is nil a bare repository is created. If the given
 // storer is not empty ErrRepositoryAlreadyExists is returned
-func Clone(s storage.Storer, worktree billy.Filesystem, o *CloneOptions) (*Repository, error) {
+func Clone(s Storer, worktree billy.Filesystem, o *CloneOptions) (*Repository, error) {
 	r, err := Init(s, worktree)
 	if err != nil {
 		return nil, err
@@ -227,22 +157,22 @@ func PlainClone(path string, isBare bool, o *CloneOptions) (*Repository, error) 
 	return r, r.clone(o)
 }
 
-func newRepository(s storage.Storer, worktree billy.Filesystem) *Repository {
+func newRepository(s Storer, worktree billy.Filesystem) *Repository {
 	return &Repository{
-		Storer: s,
-		wt:     worktree,
-		r:      make(map[string]*Remote, 0),
+		s:  s,
+		wt: worktree,
+		r:  make(map[string]*Remote, 0),
 	}
 }
 
 // Config return the repository config
 func (r *Repository) Config() (*config.Config, error) {
-	return r.Storer.Config()
+	return r.s.Config()
 }
 
 // Remote return a remote if exists
 func (r *Repository) Remote(name string) (*Remote, error) {
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return nil, err
 	}
@@ -252,12 +182,12 @@ func (r *Repository) Remote(name string) (*Remote, error) {
 		return nil, ErrRemoteNotFound
 	}
 
-	return newRemote(r.Storer, c), nil
+	return newRemote(r.s, c), nil
 }
 
 // Remotes returns a list with all the remotes
 func (r *Repository) Remotes() ([]*Remote, error) {
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +196,7 @@ func (r *Repository) Remotes() ([]*Remote, error) {
 
 	var i int
 	for _, c := range cfg.Remotes {
-		remotes[i] = newRemote(r.Storer, c)
+		remotes[i] = newRemote(r.s, c)
 		i++
 	}
 
@@ -279,9 +209,9 @@ func (r *Repository) CreateRemote(c *config.RemoteConfig) (*Remote, error) {
 		return nil, err
 	}
 
-	remote := newRemote(r.Storer, c)
+	remote := newRemote(r.s, c)
 
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return nil, err
 	}
@@ -291,12 +221,12 @@ func (r *Repository) CreateRemote(c *config.RemoteConfig) (*Remote, error) {
 	}
 
 	cfg.Remotes[c.Name] = c
-	return remote, r.Storer.SetConfig(cfg)
+	return remote, r.s.SetConfig(cfg)
 }
 
 // DeleteRemote delete a remote from the repository and delete the config
 func (r *Repository) DeleteRemote(name string) error {
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return err
 	}
@@ -306,12 +236,18 @@ func (r *Repository) DeleteRemote(name string) error {
 	}
 
 	delete(cfg.Remotes, name)
-	return r.Storer.SetConfig(cfg)
+	return r.s.SetConfig(cfg)
 }
 
 // Clone clones a remote repository
 func (r *Repository) clone(o *CloneOptions) error {
 	if err := o.Validate(); err != nil {
+		return err
+	}
+
+	// marks the repository as bare in the config, until we have Worktree, all
+	// the repository are bare
+	if err := r.setIsBare(true); err != nil {
 		return err
 	}
 
@@ -348,30 +284,7 @@ func (r *Repository) clone(o *CloneOptions) error {
 		return err
 	}
 
-	if o.RecurseSubmodules != NoRecurseSubmodules && r.wt != nil {
-		if err := r.updateSubmodules(o.RecurseSubmodules); err != nil {
-			return err
-		}
-	}
-
 	return r.updateRemoteConfig(remote, o, c, head)
-}
-
-func (r *Repository) updateSubmodules(recursion SubmoduleRescursivity) error {
-	w, err := r.Worktree()
-	if err != nil {
-		return err
-	}
-
-	s, err := w.Submodules()
-	if err != nil {
-		return err
-	}
-
-	return s.Update(&SubmoduleUpdateOptions{
-		Init:              true,
-		RecurseSubmodules: recursion,
-	})
 }
 
 func (r *Repository) cloneRefSpec(o *CloneOptions,
@@ -394,13 +307,13 @@ func (r *Repository) cloneRefSpec(o *CloneOptions,
 }
 
 func (r *Repository) setIsBare(isBare bool) error {
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return err
 	}
 
 	cfg.Core.IsBare = isBare
-	return r.Storer.SetConfig(cfg)
+	return r.s.SetConfig(cfg)
 }
 
 const (
@@ -419,13 +332,13 @@ func (r *Repository) updateRemoteConfig(remote *Remote, o *CloneOptions,
 		refspecSingleBranch, head.Name().Short(), c.Name,
 	))}
 
-	cfg, err := r.Storer.Config()
+	cfg, err := r.s.Config()
 	if err != nil {
 		return err
 	}
 
 	cfg.Remotes[c.Name] = c
-	return r.Storer.SetConfig(cfg)
+	return r.s.SetConfig(cfg)
 }
 
 func (r *Repository) updateReferences(spec []config.RefSpec,
@@ -434,7 +347,7 @@ func (r *Repository) updateReferences(spec []config.RefSpec,
 	if !resolvedHead.IsBranch() {
 		// Detached HEAD mode
 		head := plumbing.NewHashReference(plumbing.HEAD, resolvedHead.Hash())
-		return updateReferenceStorerIfNeeded(r.Storer, head)
+		return updateReferenceStorerIfNeeded(r.s, head)
 	}
 
 	refs := []*plumbing.Reference{
@@ -447,7 +360,7 @@ func (r *Repository) updateReferences(spec []config.RefSpec,
 	refs = append(refs, r.calculateRemoteHeadReference(spec, resolvedHead)...)
 
 	for _, ref := range refs {
-		u, err := updateReferenceStorerIfNeeded(r.Storer, ref)
+		u, err := updateReferenceStorerIfNeeded(r.s, ref)
 		if err != nil {
 			return updated, err
 		}
@@ -474,7 +387,7 @@ func (r *Repository) calculateRemoteHeadReference(spec []config.RefSpec,
 		}
 
 		name = rs.Dst(name)
-		_, err := r.Storer.Reference(name)
+		_, err := r.s.Reference(name)
 		if err == plumbing.ErrReferenceNotFound {
 			refs = append(refs, plumbing.NewHashReference(name, resolvedHead.Hash()))
 		}
@@ -547,17 +460,7 @@ func (r *Repository) Pull(o *PullOptions) error {
 		return NoErrAlreadyUpToDate
 	}
 
-	if err := r.updateWorktree(); err != nil {
-		return err
-	}
-
-	if o.RecurseSubmodules != NoRecurseSubmodules && r.wt != nil {
-		if err := r.updateSubmodules(o.RecurseSubmodules); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return r.updateWorktree()
 }
 
 func (r *Repository) updateWorktree() error {
@@ -611,72 +514,72 @@ func (r *Repository) Push(o *PushOptions) error {
 // Commit return a Commit with the given hash. If not found
 // plumbing.ErrObjectNotFound is returned
 func (r *Repository) Commit(h plumbing.Hash) (*object.Commit, error) {
-	return object.GetCommit(r.Storer, h)
+	return object.GetCommit(r.s, h)
 }
 
 // Commits returns an unsorted CommitIter with all the commits in the repository
 func (r *Repository) Commits() (*object.CommitIter, error) {
-	iter, err := r.Storer.IterEncodedObjects(plumbing.CommitObject)
+	iter, err := r.s.IterEncodedObjects(plumbing.CommitObject)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewCommitIter(r.Storer, iter), nil
+	return object.NewCommitIter(r.s, iter), nil
 }
 
 // Tree return a Tree with the given hash. If not found
 // plumbing.ErrObjectNotFound is returned
 func (r *Repository) Tree(h plumbing.Hash) (*object.Tree, error) {
-	return object.GetTree(r.Storer, h)
+	return object.GetTree(r.s, h)
 }
 
 // Trees returns an unsorted TreeIter with all the trees in the repository
 func (r *Repository) Trees() (*object.TreeIter, error) {
-	iter, err := r.Storer.IterEncodedObjects(plumbing.TreeObject)
+	iter, err := r.s.IterEncodedObjects(plumbing.TreeObject)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewTreeIter(r.Storer, iter), nil
+	return object.NewTreeIter(r.s, iter), nil
 }
 
 // Blob returns a Blob with the given hash. If not found
 // plumbing.ErrObjectNotFound is returne
 func (r *Repository) Blob(h plumbing.Hash) (*object.Blob, error) {
-	return object.GetBlob(r.Storer, h)
+	return object.GetBlob(r.s, h)
 }
 
 // Blobs returns an unsorted BlobIter with all the blobs in the repository
 func (r *Repository) Blobs() (*object.BlobIter, error) {
-	iter, err := r.Storer.IterEncodedObjects(plumbing.BlobObject)
+	iter, err := r.s.IterEncodedObjects(plumbing.BlobObject)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewBlobIter(r.Storer, iter), nil
+	return object.NewBlobIter(r.s, iter), nil
 }
 
 // Tag returns a Tag with the given hash. If not found
 // plumbing.ErrObjectNotFound is returned
 func (r *Repository) Tag(h plumbing.Hash) (*object.Tag, error) {
-	return object.GetTag(r.Storer, h)
+	return object.GetTag(r.s, h)
 }
 
 // Tags returns a unsorted TagIter that can step through all of the annotated
 // tags in the repository.
 func (r *Repository) Tags() (*object.TagIter, error) {
-	iter, err := r.Storer.IterEncodedObjects(plumbing.TagObject)
+	iter, err := r.s.IterEncodedObjects(plumbing.TagObject)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewTagIter(r.Storer, iter), nil
+	return object.NewTagIter(r.s, iter), nil
 }
 
 // Object returns an Object with the given hash. If not found
 // plumbing.ErrObjectNotFound is returned
 func (r *Repository) Object(t plumbing.ObjectType, h plumbing.Hash) (object.Object, error) {
-	obj, err := r.Storer.EncodedObject(t, h)
+	obj, err := r.s.EncodedObject(t, h)
 	if err != nil {
 		if err == plumbing.ErrObjectNotFound {
 			return nil, ErrObjectNotFound
@@ -685,22 +588,22 @@ func (r *Repository) Object(t plumbing.ObjectType, h plumbing.Hash) (object.Obje
 		return nil, err
 	}
 
-	return object.DecodeObject(r.Storer, obj)
+	return object.DecodeObject(r.s, obj)
 }
 
 // Objects returns an unsorted BlobIter with all the objects in the repository
 func (r *Repository) Objects() (*object.ObjectIter, error) {
-	iter, err := r.Storer.IterEncodedObjects(plumbing.AnyObject)
+	iter, err := r.s.IterEncodedObjects(plumbing.AnyObject)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.NewObjectIter(r.Storer, iter), nil
+	return object.NewObjectIter(r.s, iter), nil
 }
 
 // Head returns the reference where HEAD is pointing to.
 func (r *Repository) Head() (*plumbing.Reference, error) {
-	return storer.ResolveReference(r.Storer, plumbing.HEAD)
+	return storer.ResolveReference(r.s, plumbing.HEAD)
 }
 
 // Reference returns the reference for a given reference name. If resolved is
@@ -709,15 +612,15 @@ func (r *Repository) Reference(name plumbing.ReferenceName, resolved bool) (
 	*plumbing.Reference, error) {
 
 	if resolved {
-		return storer.ResolveReference(r.Storer, name)
+		return storer.ResolveReference(r.s, name)
 	}
 
-	return r.Storer.Reference(name)
+	return r.s.Reference(name)
 }
 
 // References returns an unsorted ReferenceIter for all references.
 func (r *Repository) References() (storer.ReferenceIter, error) {
-	return r.Storer.IterReferences()
+	return r.s.IterReferences()
 }
 
 // Worktree returns a worktree based on the given fs, if nil the default
@@ -728,130 +631,4 @@ func (r *Repository) Worktree() (*Worktree, error) {
 	}
 
 	return &Worktree{r: r, fs: r.wt}, nil
-}
-
-// ResolveRevision resolves revision to corresponding hash
-func (r *Repository) ResolveRevision(rev plumbing.Revision) (*plumbing.Hash, error) {
-	p := revision.NewParserFromString(string(rev))
-
-	items, err := p.Parse()
-
-	if err != nil {
-		return nil, err
-	}
-
-	var commit *object.Commit
-
-	for _, item := range items {
-		switch item.(type) {
-		case revision.Ref:
-			ref, err := storer.ResolveReference(r.Storer, plumbing.ReferenceName(item.(revision.Ref)))
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-
-			h := ref.Hash()
-
-			commit, err = r.Commit(h)
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-		case revision.CaretPath:
-			depth := item.(revision.CaretPath).Depth
-
-			if depth == 0 {
-				break
-			}
-
-			iter := commit.Parents()
-
-			c, err := iter.Next()
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-
-			if depth == 1 {
-				commit = c
-
-				break
-			}
-
-			c, err = iter.Next()
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-
-			commit = c
-		case revision.TildePath:
-			for i := 0; i < item.(revision.TildePath).Depth; i++ {
-				c, err := commit.Parents().Next()
-
-				if err != nil {
-					return &plumbing.ZeroHash, err
-				}
-
-				commit = c
-			}
-		case revision.CaretReg:
-			history, err := commit.History()
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-
-			re := item.(revision.CaretReg).Regexp
-			negate := item.(revision.CaretReg).Negate
-
-			var c *object.Commit
-
-			for i := 0; i < len(history); i++ {
-				if !negate && re.MatchString(history[i].Message) {
-					c = history[i]
-
-					break
-				}
-
-				if negate && !re.MatchString(history[i].Message) {
-					c = history[i]
-
-					break
-				}
-			}
-
-			if c == nil {
-				return &plumbing.ZeroHash, fmt.Errorf(`No commit message match regexp : "%s"`, re.String())
-			}
-
-			commit = c
-		case revision.AtDate:
-			history, err := commit.History()
-
-			if err != nil {
-				return &plumbing.ZeroHash, err
-			}
-
-			date := item.(revision.AtDate).Date
-			var c *object.Commit
-
-			for i := 0; i < len(history); i++ {
-				if date.Equal(history[i].Committer.When.UTC()) || history[i].Committer.When.UTC().Before(date) {
-					c = history[i]
-
-					break
-				}
-			}
-
-			if c == nil {
-				return &plumbing.ZeroHash, fmt.Errorf(`No commit exists prior to date "%s"`, date.String())
-			}
-
-			commit = c
-		}
-	}
-
-	return &commit.Hash, nil
 }

@@ -18,7 +18,6 @@ import (
 
 	. "gopkg.in/check.v1"
 	"srcd.works/go-billy.v1/memfs"
-	"srcd.works/go-billy.v1/osfs"
 )
 
 type RepositorySuite struct {
@@ -35,52 +34,6 @@ func (s *RepositorySuite) TestInit(c *C) {
 	cfg, err := r.Config()
 	c.Assert(err, IsNil)
 	c.Assert(cfg.Core.IsBare, Equals, false)
-}
-
-func (s *RepositorySuite) TestInitNonStandardDotGit(c *C) {
-	dir, err := ioutil.TempDir("", "init-non-standard")
-	c.Assert(err, IsNil)
-	c.Assert(os.RemoveAll(dir), IsNil)
-
-	fs := osfs.New(dir)
-	storage, err := filesystem.NewStorage(fs.Dir("storage"))
-	c.Assert(err, IsNil)
-
-	r, err := Init(storage, fs.Dir("worktree"))
-	c.Assert(err, IsNil)
-	c.Assert(r, NotNil)
-
-	f, err := fs.Open("worktree/.git")
-	c.Assert(err, IsNil)
-
-	all, err := ioutil.ReadAll(f)
-	c.Assert(err, IsNil)
-	c.Assert(string(all), Equals, "gitdir: ../storage\n")
-
-	cfg, err := r.Config()
-	c.Assert(err, IsNil)
-	c.Assert(cfg.Core.Worktree, Equals, "../worktree")
-}
-
-func (s *RepositorySuite) TestInitStandardDotGit(c *C) {
-	dir, err := ioutil.TempDir("", "init-standard")
-	c.Assert(err, IsNil)
-	c.Assert(os.RemoveAll(dir), IsNil)
-
-	fs := osfs.New(dir)
-	storage, err := filesystem.NewStorage(fs.Dir(".git"))
-	c.Assert(err, IsNil)
-
-	r, err := Init(storage, fs)
-	c.Assert(err, IsNil)
-	c.Assert(r, NotNil)
-
-	l, err := fs.ReadDir(".git")
-	c.Assert(len(l) > 0, Equals, true)
-
-	cfg, err := r.Config()
-	c.Assert(err, IsNil)
-	c.Assert(cfg.Core.Worktree, Equals, "")
 }
 
 func (s *RepositorySuite) TestInitBare(c *C) {
@@ -291,24 +244,6 @@ func (s *RepositorySuite) TestPlainClone(c *C) {
 	remotes, err := r.Remotes()
 	c.Assert(err, IsNil)
 	c.Assert(remotes, HasLen, 1)
-}
-
-func (s *RepositorySuite) TestPlainCloneWithRecurseSubmodules(c *C) {
-	dir, err := ioutil.TempDir("", "plain-clone-submodule")
-	c.Assert(err, IsNil)
-	defer os.RemoveAll(dir)
-
-	path := fixtures.ByTag("submodule").One().Worktree().Base()
-	r, err := PlainClone(dir, false, &CloneOptions{
-		URL:               fmt.Sprintf("file://%s", path),
-		RecurseSubmodules: DefaultSubmoduleRecursionDepth,
-	})
-
-	c.Assert(err, IsNil)
-
-	cfg, err := r.Config()
-	c.Assert(cfg.Remotes, HasLen, 1)
-	c.Assert(cfg.Submodules, HasLen, 2)
 }
 
 func (s *RepositorySuite) TestFetch(c *C) {
@@ -559,7 +494,7 @@ func (s *RepositorySuite) TestPullSingleBranch(c *C) {
 	branch, err = r.Reference("refs/remotes/foo/branch", false)
 	c.Assert(err, NotNil)
 
-	storage := r.Storer.(*memory.Storage)
+	storage := r.s.(*memory.Storage)
 	c.Assert(storage.Objects, HasLen, 28)
 }
 
@@ -580,43 +515,26 @@ func (s *RepositorySuite) TestPullProgress(c *C) {
 	c.Assert(buf.Len(), Not(Equals), 0)
 }
 
-func (s *RepositorySuite) TestPullProgressWithRecursion(c *C) {
-	path := fixtures.ByTag("submodule").One().Worktree().Base()
-
-	dir, err := ioutil.TempDir("", "plain-clone-submodule")
-	c.Assert(err, IsNil)
-	defer os.RemoveAll(dir)
-
-	r, _ := PlainInit(dir, false)
-	r.CreateRemote(&config.RemoteConfig{
-		Name: DefaultRemoteName,
-		URL:  fmt.Sprintf("file://%s", path),
-	})
-
-	err = r.Pull(&PullOptions{
-		RecurseSubmodules: DefaultSubmoduleRecursionDepth,
-	})
-	c.Assert(err, IsNil)
-
-	cfg, err := r.Config()
-	c.Assert(cfg.Submodules, HasLen, 2)
-}
-
 func (s *RepositorySuite) TestPullAdd(c *C) {
-	path := fixtures.Basic().ByTag("worktree").One().Worktree().Base()
+	path := fixtures.Basic().One().Worktree().Base()
 
-	r, err := Clone(memory.NewStorage(), nil, &CloneOptions{
+	r, _ := Init(memory.NewStorage(), nil)
+	err := r.clone(&CloneOptions{
 		URL: fmt.Sprintf("file://%s", filepath.Join(path, ".git")),
 	})
 
 	c.Assert(err, IsNil)
 
-	storage := r.Storer.(*memory.Storage)
-	c.Assert(storage.Objects, HasLen, 28)
+	storage := r.s.(*memory.Storage)
+	c.Assert(storage.Objects, HasLen, 31)
 
 	branch, err := r.Reference("refs/heads/master", false)
 	c.Assert(err, IsNil)
 	c.Assert(branch.Hash().String(), Equals, "6ecf0ef2c2dffb796033e5a02219af86ec6584e5")
+
+	branch, err = r.Reference("refs/remotes/origin/branch", false)
+	c.Assert(err, IsNil)
+	c.Assert(branch.Hash().String(), Equals, "e8d3ffab552895c19b9fcf7aa264d277cde33881")
 
 	ExecuteOnPath(c, path,
 		"touch foo",
@@ -628,11 +546,16 @@ func (s *RepositorySuite) TestPullAdd(c *C) {
 	c.Assert(err, IsNil)
 
 	// the commit command has introduced a new commit, tree and blob
-	c.Assert(storage.Objects, HasLen, 31)
+	c.Assert(storage.Objects, HasLen, 34)
 
 	branch, err = r.Reference("refs/heads/master", false)
 	c.Assert(err, IsNil)
 	c.Assert(branch.Hash().String(), Not(Equals), "6ecf0ef2c2dffb796033e5a02219af86ec6584e5")
+
+	// the commit command, was in the local branch, so the remote should be read ok
+	branch, err = r.Reference("refs/remotes/origin/branch", false)
+	c.Assert(err, IsNil)
+	c.Assert(branch.Hash().String(), Equals, "e8d3ffab552895c19b9fcf7aa264d277cde33881")
 }
 
 func (s *RepositorySuite) TestPushToEmptyRepository(c *C) {
@@ -855,58 +778,6 @@ func (s *RepositorySuite) TestWorktreeBare(c *C) {
 	w, err := r.Worktree()
 	c.Assert(err, Equals, ErrIsBareRepository)
 	c.Assert(w, IsNil)
-}
-
-func (s *RepositorySuite) TestResolveRevision(c *C) {
-	url := s.GetLocalRepositoryURL(
-		fixtures.ByURL("https://github.com/git-fixtures/basic.git").One(),
-	)
-
-	r, _ := Init(memory.NewStorage(), nil)
-	err := r.clone(&CloneOptions{URL: url})
-	c.Assert(err, IsNil)
-
-	datas := map[string]string{
-		"HEAD": "6ecf0ef2c2dffb796033e5a02219af86ec6584e5",
-		"refs/heads/master~2^^~":      "b029517f6300c2da0f4b651b8642506cd6aaf45d",
-		"HEAD~2^^~":                   "b029517f6300c2da0f4b651b8642506cd6aaf45d",
-		"HEAD~3^2":                    "a5b8b09e2f8fcb0bb99d3ccb0958157b40890d69",
-		"HEAD~3^2^0":                  "a5b8b09e2f8fcb0bb99d3ccb0958157b40890d69",
-		"HEAD~2^{/binary file}":       "35e85108805c84807bc66a02d91535e1e24b38b9",
-		"HEAD~^{!-some}":              "1669dce138d9b841a518c64b10914d88f5e488ea",
-		"HEAD@{2015-03-31T11:56:18Z}": "918c48b83bd081e863dbe1b80f8998f058cd8294",
-		"HEAD@{2015-03-31T11:49:00Z}": "1669dce138d9b841a518c64b10914d88f5e488ea",
-	}
-
-	for rev, hash := range datas {
-		h, err := r.ResolveRevision(plumbing.Revision(rev))
-
-		c.Assert(err, IsNil)
-		c.Assert(h.String(), Equals, hash)
-	}
-}
-
-func (s *RepositorySuite) TestResolveRevisionWithErrors(c *C) {
-	url := s.GetLocalRepositoryURL(
-		fixtures.ByURL("https://github.com/git-fixtures/basic.git").One(),
-	)
-
-	r, _ := Init(memory.NewStorage(), nil)
-	err := r.clone(&CloneOptions{URL: url})
-	c.Assert(err, IsNil)
-
-	datas := map[string]string{
-		"efs/heads/master~":           "reference not found",
-		"HEAD^3":                      `Revision invalid : "3" found must be 0, 1 or 2 after "^"`,
-		"HEAD^{/whatever}":            `No commit message match regexp : "whatever"`,
-		"HEAD@{2015-03-31T09:49:00Z}": `No commit exists prior to date "2015-03-31 09:49:00 +0000 UTC"`,
-	}
-
-	for rev, rerr := range datas {
-		_, err := r.ResolveRevision(plumbing.Revision(rev))
-
-		c.Assert(err.Error(), Equals, rerr)
-	}
 }
 
 func ExecuteOnPath(c *C, path string, cmds ...string) error {
