@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jroimartin/gocui"
+	"regexp"
 )
 
 type ScrollView struct {
@@ -18,6 +19,10 @@ func (sv *ScrollView) Layout(g *gocui.Gui) error {
 }
 
 func (sv *ScrollView) ScrollToGraph(graph string) {
+	// The commit hash is used for searching commit message only.
+	// So strip it when display.
+	re := regexp.MustCompile(`[0-9a-f]{40}`)
+	graph = re.ReplaceAllLiteralString(graph, "")
 	sv.g.Execute(func(g *gocui.Gui) error {
 		v, err := g.View("log-graph")
 		if err != nil {

@@ -18,9 +18,8 @@ func init() {
 	flag.BoolVar((*bool)(&printVersion), "version", false, "print version")
 }
 
-func execCmd(cmd string) (returnCode int, output string) {
-	debugLogger.Println(cmd)
-	argv := strings.Split(cmd, " ")
+func execCmd(argv []string) (returnCode int, output string) {
+	debugLogger.Println(argv)
 	bytes, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
 	output = string(bytes)
 	if err != nil {
@@ -48,9 +47,18 @@ func main() {
 		os.Exit(0)
 	}
 
-	cmd := "git log --graph --color --decorate --all --oneline"
+	returnCode, path := execCmd(strings.Split(`git rev-parse --show-toplevel`, " "))
+	if returnCode != 0 {
+		os.Exit(returnCode)
+	}
+	if err := InitRepo(path); err != nil {
+		errorLogger.Fatal(err)
+	}
+
+	cmd := strings.Split(`git log --graph --all --color`, " ")
+	cmd = append(cmd, `--format=%C(yellow)%H%Creset%C(auto)%d %s`)
 	if len(os.Args) > 1 {
-		cmd += " " + strings.Join(os.Args[1:], " ")
+		cmd = append(cmd, os.Args[1:]...)
 	}
 	returnCode, output := execCmd(cmd)
 	if returnCode != 0 {

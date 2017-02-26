@@ -73,3 +73,9 @@ func (e errorLogging) Panicln(args ...interface{}) {
 		_errorLogger.Panicln(args...)
 	}
 }
+
+func (e errorLogging) Fatal(args ...interface{}) {
+	if e {
+		_errorLogger.Fatal(args...)
+	}
+}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/jroimartin/gocui"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -28,7 +29,9 @@ func DrawUI(_gitLogs []string) {
 		g: g,
 	}
 	storyView = &StoryView{}
-	commitView = &CommitView{}
+	commitView = &CommitView{
+		g: g,
+	}
 	g.SetManager(scrollView, storyView, commitView)
 
 	go tick(g)
@@ -55,6 +58,9 @@ func tick(g *gocui.Gui) {
 	topPadding := windowSize - 1
 	lastLogIdx := len(gitLogs) - 1
 
+	re := regexp.MustCompile(`[0-9a-f]{40}`)
+
+	// 4 lines per second
 	scrollTicker := time.NewTicker(250 * time.Millisecond)
 	defer scrollTicker.Stop()
 	for {
@@ -62,32 +68,35 @@ func tick(g *gocui.Gui) {
 		case <-done:
 			return
 		case <-scrollTicker.C:
-			eof := scrollLog(lastLogIdx, topPadding, windowSize)
-			if eof {
-				return
+			hash := re.FindString(gitLogs[lastLogIdx])
+			if hash != "" {
+				commitView.Show(hash)
 			}
-			lastLogIdx--
+			scrollLog(lastLogIdx, topPadding, windowSize)
 			if topPadding > 0 {
 				topPadding--
+			}
+			lastLogIdx--
+			if lastLogIdx < 0 {
+				return
 			}
 		}
 	}
 }
 
-func scrollLog(lastLogIdx, topPadding, windowSize int) (eof bool) {
+func scrollLog(lastLogIdx, topPadding, windowSize int) {
 	var graph string
 	if topPadding > 0 {
 		if lastLogIdx < 0 {
-			return true
+			return
 		}
 		graph = strings.Repeat("\n", topPadding) +
 			strings.Join(gitLogs[lastLogIdx:], "\n")
 	} else {
 		if lastLogIdx < windowSize {
-			return true
+			return
 		}
 		graph = strings.Join(gitLogs[lastLogIdx-windowSize:lastLogIdx], "\n")
 	}
 	scrollView.ScrollToGraph(graph)
-	return false
 }
