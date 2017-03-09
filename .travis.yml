@@ -1,0 +1,7 @@
+language: go
+install:
+  - echo 'Just a placeholder to keep travis from running `go get`.'
+  - echo 'We have shipped all dependencies inside the repo,'
+  - echo "and src-d/go-git imports an internal module, so `go get` doesn't work."
+script:
+  - go test -v
