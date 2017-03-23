@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/stretchr/testify/assert"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -79,4 +81,25 @@ func TestExtractDataFromCommit(t *testing.T) {
 	assert.Equal(t, "2017-02-26 17:12:06 +0800", tag.date)
 	assert.Equal(t, "spacewander", tag.tagger_name)
 	assert.Equal(t, "spacewanderlzx@gmail.com", tag.tagger_email)
+}
+
+func TestExplainCommitInLuaScript(t *testing.T) {
+	case_prefix := "fixture/dump_commit"
+	defer func() {
+		os.Remove(case_prefix + ".actual.txt")
+	}()
+
+	// start from the base of last test
+	hash := "a592ab93c727bf21bbeeccb19b8a1362c6a73c96"
+	InitRepo(".")
+	commit, _ := SearchCommit(hash)
+	info := ExtractDataFromCommit(commit)
+	PlayWithCommitInfo(case_prefix+".lua", info)
+	actual, err := ioutil.ReadFile(case_prefix + ".actual.txt")
+	if err != nil {
+		assert.Fail(t, err.Error())
+	} else {
+		expect, _ := ioutil.ReadFile(case_prefix + ".expect.txt")
+		assert.Equal(t, string(expect), string(actual))
+	}
 }

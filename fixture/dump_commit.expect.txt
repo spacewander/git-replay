@@ -1,0 +1,27 @@
+author_date: 2017-02-24 17:13:30 +0800
+author_email: spacewanderlzx@gmail.com
+author_name: spacewander
+committer_date: 2017-02-25 14:47:53 +0800
+committer_email: spacewanderlzx@gmail.com
+committer_name: spacewander
+date: 2017-02-24 17:13:30 +0800
+email: spacewanderlzx@gmail.com
+hash: a592ab93c727bf21bbeeccb19b8a1362c6a73c96
+merge_from: 
+merge_to: 
+message: add gitignore and LICENSE
+
+name: spacewander
+tag: date: 2017-02-26 17:12:06 +0800
+tag: date: 2017-02-26 17:12:06 +0800
+tag: message: tag for test
+
+tag: message: tag for test
+
+tag: name: 0.01
+tag: name: 0.01
+tag: tagger_email: spacewanderlzx@gmail.com
+tag: tagger_email: spacewanderlzx@gmail.com
+tag: tagger_name: spacewander
+tag: tagger_name: spacewander
+title: add gitignore and LICENSE
