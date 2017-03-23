@@ -12,10 +12,21 @@ import (
 var (
 	printVersion bool
 	VERSION      string
+
+	scriptName string
 )
 
 func init() {
-	flag.BoolVar((*bool)(&printVersion), "version", false, "print version")
+	flag.BoolVar(&printVersion, "version", false, "print version")
+	flag.StringVar(&scriptName, "script", "", "specific lua script to run")
+}
+
+func panicIfScriptIsInvalid(filename string) {
+	if stat, err := os.Stat(filename); err != nil {
+		errorLogger.Panicln(err)
+	} else if !stat.Mode().IsRegular() {
+		errorLogger.Panicln(filename + " is not a regular file")
+	}
 }
 
 func execCmd(argv []string) (returnCode int, output string) {
@@ -46,6 +57,9 @@ func main() {
 		fmt.Println("Version: ", VERSION)
 		os.Exit(0)
 	}
+	if scriptName != "" {
+		panicIfScriptIsInvalid(scriptName)
+	}
 
 	returnCode, path := execCmd(strings.Split(`git rev-parse --show-toplevel`, " "))
 	if returnCode != 0 {
@@ -57,9 +71,8 @@ func main() {
 
 	cmd := strings.Split(`git log --graph --all --color`, " ")
 	cmd = append(cmd, `--format=%C(yellow)%H%Creset%C(auto)%d %s`)
-	if len(os.Args) > 1 {
-		cmd = append(cmd, os.Args[1:]...)
-	}
+	args := flag.Args()
+	cmd = append(cmd, args...)
 	returnCode, output := execCmd(cmd)
 	if returnCode != 0 {
 		os.Exit(returnCode)

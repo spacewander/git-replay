@@ -74,7 +74,12 @@ func tick(g *gocui.Gui) {
 			if hash != "" {
 				if commit, err := SearchCommit(hash); err == nil {
 					commitView.Show(commit.String())
-					storyView.Show(ExtractDataFromCommit(commit))
+					if scriptName != "" {
+						commitInfo := ExtractDataFromCommit(commit)
+						if err := PlayWithCommitInfo(scriptName, commitInfo); err != nil {
+							errorLogger.Panicln(err)
+						}
+					}
 				}
 			}
 			scrollLog(lastLogIdx, topPadding, windowSize)

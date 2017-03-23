@@ -15,19 +15,19 @@ func (sv *StoryView) Layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		fmt.Fprintln(v, "storyView")
+		fmt.Fprintln(v, "waiting for your story...")
 	}
 	return nil
 }
 
-func (sv *StoryView) Show(info *CommitInfo) {
+func (sv *StoryView) Show(story string) {
 	sv.g.Execute(func(g *gocui.Gui) error {
 		v, err := g.View("story")
 		if err != nil {
 			return err
 		}
 		v.Clear()
-		fmt.Fprintln(v, info)
+		fmt.Fprintln(v, story)
 		return nil
 	})
 }

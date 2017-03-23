@@ -27,6 +27,8 @@ type CommitInfo struct {
 	// yyyy-MM-dd mm:hh:ss +tz
 	committer_date string
 
+	hash string
+
 	// alias to author_xxx
 	name  string
 	email string
@@ -60,6 +62,8 @@ func InitRepo(path string) (err error) {
 		return err
 	}
 
+	// Only annotated tags(tag created with git tag -a) are listed.
+	// You can figure them out with `git for-each-ref "refs/tags"`
 	iter, err := repo.Tags()
 	if err != nil {
 		return nil
@@ -87,6 +91,7 @@ func SearchCommit(hash string) (*object.Commit, error) {
 func ExtractDataFromCommit(commit *object.Commit) *CommitInfo {
 	formatStr := "2006-01-02 15:04:05 -0700"
 	info := &CommitInfo{
+		hash:            commit.Hash.String(),
 		message:         commit.Message,
 		name:            commit.Author.Name,
 		email:           commit.Author.Email,
