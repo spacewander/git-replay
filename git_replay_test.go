@@ -4,8 +4,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 )
+
+var (
+	info *CommitInfo
+)
+
+func init() {
+	hash := "a592ab93c727bf21bbeeccb19b8a1362c6a73c96"
+	err := InitRepo(".")
+	if err != nil {
+		panic(err)
+	}
+	commit, err := SearchCommit(hash)
+	if err != nil {
+		panic(err)
+	}
+	info = ExtractDataFromCommit(commit)
+}
 
 func TestSubDateToIsoFormat(t *testing.T) {
 	commit := `commit 35890e3fb07bc74976ad6c6f58480bbdcc708b7c
@@ -56,12 +74,6 @@ func TestParseCommitMessage(t *testing.T) {
 }
 
 func TestExtractDataFromCommit(t *testing.T) {
-	hash := "a592ab93c727bf21bbeeccb19b8a1362c6a73c96"
-	err := InitRepo(".")
-	assert.Nil(t, err)
-	commit, err := SearchCommit(hash)
-	assert.Nil(t, err)
-	info := ExtractDataFromCommit(commit)
 	assert.Equal(t, "add gitignore and LICENSE\n", info.message)
 	assert.Equal(t, "add gitignore and LICENSE", info.title)
 
@@ -89,17 +101,12 @@ func TestExplainCommitInLuaScript(t *testing.T) {
 		os.Remove(case_prefix + ".actual.txt")
 	}()
 
-	// start from the base of last test
-	hash := "a592ab93c727bf21bbeeccb19b8a1362c6a73c96"
-	InitRepo(".")
-	commit, _ := SearchCommit(hash)
-	info := ExtractDataFromCommit(commit)
 	PlayWithCommitInfo(case_prefix+".lua", info)
 	actual, err := ioutil.ReadFile(case_prefix + ".actual.txt")
 	if err != nil {
 		assert.Fail(t, err.Error())
 	} else {
 		expect, _ := ioutil.ReadFile(case_prefix + ".expect.txt")
-		assert.Equal(t, string(expect), string(actual))
+		assert.Equal(t, strings.TrimRight(string(expect), "\n"), string(actual))
 	}
 }
