@@ -33,6 +33,7 @@ func dumpPlainStringStructToLuaTable(L *lua.State, obj interface{}) {
 }
 
 func GetCommit(L *lua.State) int {
+	debugLogger.Println("call get_commit")
 	L.CreateTable(0, 16)
 	dumpPlainStringStructToLuaTable(L, curCommit)
 
@@ -54,6 +55,7 @@ func GetCommit(L *lua.State) int {
 
 func PrintToStoryView(L *lua.State) int {
 	nargs := L.Top()
+	debugLogger.Println("call print with nargs: ", nargs)
 	args := []string{}
 	for i := 1; i <= nargs; i++ {
 		luaType := L.TypeOf(i)

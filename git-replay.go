@@ -30,7 +30,7 @@ func panicIfScriptIsInvalid(filename string) {
 }
 
 func execCmd(argv []string) (returnCode int, output string) {
-	debugLogger.Println(argv)
+	debugLogger.Println("execCmd: ", argv)
 	bytes, err := exec.Command(argv[0], argv[1:]...).CombinedOutput()
 	output = string(bytes)
 	if err != nil {

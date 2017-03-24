@@ -57,6 +57,7 @@ type TagInfo struct {
 }
 
 func InitRepo(path string) (err error) {
+	debugLogger.Println("init repo ", path)
 	repo, err = go_git.PlainOpen(path)
 	if err != nil {
 		return err
@@ -69,7 +70,9 @@ func InitRepo(path string) (err error) {
 		return nil
 	}
 	for tag, err := iter.Next(); err == nil; tag, err = iter.Next() {
+		debugLogger.Println("tag: ", tag.Name, " ", tag.Hash.String())
 		if commit, err := tag.Commit(); err == nil {
+			debugLogger.Println("commit attached by tag: ", commit.Hash.String())
 			if prev_tags, ok := commitToTag[commit.Hash]; ok {
 				commitToTag[commit.Hash] = append(prev_tags, tag.Hash)
 			} else {
@@ -107,6 +110,7 @@ func ExtractDataFromCommit(commit *object.Commit) *CommitInfo {
 		info.tags = []*TagInfo{}
 		for _, tagHash := range tagHashes {
 			if tag, err := repo.Tag(tagHash); err == nil {
+				debugLogger.Println("found tag: ", tag.Name, " ", tag.Hash.String())
 				tagInfo := &TagInfo{
 					name:         tag.Name,
 					message:      tag.Message,
@@ -129,5 +133,6 @@ func (info *CommitInfo) parseCommitMessage() {
 	if matchGroup != nil {
 		info.merge_from = matchGroup[1]
 		info.merge_to = matchGroup[2]
+		debugLogger.Println("merge from: ", info.merge_from, " to: ", info.merge_to)
 	}
 }

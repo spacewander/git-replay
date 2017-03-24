@@ -12,7 +12,7 @@ var (
 	info *CommitInfo
 )
 
-func init() {
+func TestMain(m *testing.M) {
 	hash := "a592ab93c727bf21bbeeccb19b8a1362c6a73c96"
 	err := InitRepo(".")
 	if err != nil {
@@ -23,6 +23,8 @@ func init() {
 		panic(err)
 	}
 	info = ExtractDataFromCommit(commit)
+
+	m.Run()
 }
 
 func TestSubDateToIsoFormat(t *testing.T) {
@@ -109,4 +111,17 @@ func TestExplainCommitInLuaScript(t *testing.T) {
 		expect, _ := ioutil.ReadFile(case_prefix + ".expect.txt")
 		assert.Equal(t, strings.TrimRight(string(expect), "\n"), string(actual))
 	}
+}
+
+func TestDebugLogging(t *testing.T) {
+	defer func() {
+		os.Remove(debugLogFilename)
+	}()
+	debugLogger = true
+	debugLogger.Print("log info")
+	log_info, err := ioutil.ReadFile(debugLogFilename)
+	if err != nil {
+		assert.Fail(t, err.Error())
+	}
+	assert.True(t, strings.HasSuffix(string(log_info), "log info\n"))
 }

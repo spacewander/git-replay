@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"io"
 	"log"
 	"os"
+	"sync"
 )
 
 type debugLogging bool
@@ -14,39 +14,48 @@ var (
 	debugLogger debugLogging
 	errorLogger errorLogging
 
-	logFile io.Writer
+	_errorLogger     *log.Logger
+	_debugLogger     *log.Logger
+	debugLogFilename = "debug.log"
 
-	_errorLogger = log.New(os.Stdout, "[ERROR] ", log.LstdFlags)
-	_debugLogger = log.New(os.Stdout, "[DEBUG] ", log.LstdFlags)
+	once sync.Once
 )
 
 func init() {
 	errorLogger = true
 	flag.BoolVar((*bool)(&debugLogger), "debug", false, "log in debug level")
+
+	errorLogFile := os.Stderr
+	_errorLogger = log.New(errorLogFile, "[ERROR] ", log.LstdFlags)
 }
 
-func initLog() {
-	logFile = os.Stderr
-	log.SetOutput(logFile)
-	_errorLogger = log.New(logFile, "[ERROR] ", log.LstdFlags)
-	_debugLogger = log.New(logFile, "[DEBUG] ", log.LstdFlags)
+func (d debugLogging) getDebugLogger() *log.Logger {
+	once.Do(func() {
+		debugLogFile, err := os.Create(debugLogFilename)
+		if err != nil {
+			// just panic instead of hiding the problem
+			panic(err)
+		}
+		_debugLogger = log.New(debugLogFile, "[DEBUG] ", log.LstdFlags)
+	})
+	return _debugLogger
 }
 
 func (d debugLogging) Printf(format string, args ...interface{}) {
 	if d {
-		_debugLogger.Printf(format, args...)
+		d.getDebugLogger().Printf(format, args...)
 	}
 }
 
 func (d debugLogging) Print(args ...interface{}) {
 	if d {
-		_debugLogger.Print(args...)
+		d.getDebugLogger().Print(args...)
 	}
 }
 
 func (d debugLogging) Println(args ...interface{}) {
 	if d {
-		_debugLogger.Println(args...)
+		d.getDebugLogger().Println(args...)
 	}
 }
 

@@ -73,6 +73,7 @@ func tick(g *gocui.Gui) {
 			hash := re.FindString(gitLogs[lastLogIdx])
 			if hash != "" {
 				if commit, err := SearchCommit(hash); err == nil {
+					debugLogger.Println("commit: ", commit.Hash.String())
 					commitView.Show(commit.String())
 					if scriptName != "" {
 						commitInfo := ExtractDataFromCommit(commit)
