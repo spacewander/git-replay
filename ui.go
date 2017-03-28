@@ -10,9 +10,11 @@ import (
 var (
 	done = make(chan struct{})
 
-	scrollView *ScrollView
-	storyView  *StoryView
-	commitView *CommitView
+	scrollView     *ScrollView
+	storyView      *StoryView
+	commitView     *CommitView
+	noticeView     *NoticeView
+	statusLineView *StatusLineView
 
 	gitLogs []string
 )
@@ -26,15 +28,46 @@ func DrawUI(_gitLogs []string) {
 	defer g.Close()
 
 	scrollView = &ScrollView{
-		g: g,
+		BaseView: BaseView{
+			id: "scroll",
+			g:  g,
+		},
 	}
 	storyView = &StoryView{
-		g: g,
+		BaseView: BaseView{
+			id: "story",
+			g:  g,
+		},
 	}
 	commitView = &CommitView{
-		g: g,
+		BaseView: BaseView{
+			id: "commit",
+			g:  g,
+		},
 	}
-	g.SetManager(scrollView, storyView, commitView)
+	noticeView = &NoticeView{
+		BaseView: BaseView{
+			id: "notice",
+			g:  g,
+		},
+		notice: `press 'q' to quit`,
+	}
+	statusLineView = &StatusLineView{
+		BaseView: BaseView{
+			id: "status line",
+			g:  g,
+		},
+		status: map[string]string{
+			"speed": "1",
+		},
+	}
+	g.SetManager(
+		scrollView,
+		storyView,
+		commitView,
+		noticeView,
+		statusLineView,
+	)
 
 	go tick(g)
 	defer close(done)
@@ -74,7 +107,7 @@ func tick(g *gocui.Gui) {
 			if hash != "" {
 				if commit, err := SearchCommit(hash); err == nil {
 					debugLogger.Println("commit: ", commit.Hash.String())
-					commitView.Show(commit.String())
+					commitView.DisplayCommit(commit)
 					if scriptName != "" {
 						commitInfo := ExtractDataFromCommit(commit)
 						if err := PlayWithCommitInfo(scriptName, commitInfo); err != nil {

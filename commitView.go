@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"github.com/jroimartin/gocui"
 	"regexp"
+	"srcd.works/go-git.v4/plumbing/object"
 	"time"
 )
 
 type CommitView struct {
-	g *gocui.Gui
+	BaseView
 }
 
 func (cv *CommitView) Layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
-	if v, err := g.SetView("commit", maxX*2/3, maxY/2, maxX, maxY); err != nil {
+	if v, err := g.SetView(cv.id, maxX*2/3, maxY/2, maxX, maxY-4); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -22,17 +23,9 @@ func (cv *CommitView) Layout(g *gocui.Gui) error {
 	return nil
 }
 
-func (cv *CommitView) Show(commitMessage string) {
-	cv.g.Execute(func(g *gocui.Gui) error {
-		v, err := g.View("commit")
-		if err != nil {
-			return err
-		}
-		v.Clear()
-		commitMessage = subDateToIsoFormat(commitMessage)
-		fmt.Fprintln(v, commitMessage)
-		return nil
-	})
+func (cv *CommitView) DisplayCommit(commit *object.Commit) {
+	commitMessage := subDateToIsoFormat(commit.String())
+	cv.BaseView.Show(commitMessage)
 }
 
 // substitute 'Date:   Wed Feb 17 16:20:26 2016 +0800' to

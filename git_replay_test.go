@@ -125,3 +125,31 @@ func TestDebugLogging(t *testing.T) {
 	}
 	assert.True(t, strings.HasSuffix(string(log_info), "log info\n"))
 }
+
+func TestFormatStatusLine(t *testing.T) {
+	// required length: 2*(5 + 5 + 3) = 26
+	status := map[string]string{
+		"name1": "value",
+		"name2": "value",
+	}
+	width := 30
+	actual := formatStatusLine(width, status)
+	assert.Equal(t, "  name1: value  name2: value", actual)
+}
+
+func TestFormatStatusLine_LongerThanRequired(t *testing.T) {
+	status := map[string]string{
+		"name1": "value",
+		"name2": "value",
+	}
+	width := 26
+	actual := formatStatusLine(width, status)
+	assert.Equal(t, " name1: value name2: value", actual)
+}
+
+func TestFormatStatusLine_EmptyStatus(t *testing.T) {
+	status := map[string]string{}
+	width := 40
+	actual := formatStatusLine(width, status)
+	assert.Equal(t, "", actual)
+}
