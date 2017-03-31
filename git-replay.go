@@ -21,11 +21,11 @@ func init() {
 	flag.StringVar(&scriptName, "script", "", "specific lua script to run")
 }
 
-func panicIfScriptIsInvalid(filename string) {
+func fatalIfScriptIsInvalid(filename string) {
 	if stat, err := os.Stat(filename); err != nil {
-		errorLogger.Panicln(err)
+		errorLogger.Fatal(err)
 	} else if !stat.Mode().IsRegular() {
-		errorLogger.Panicln(filename + " is not a regular file")
+		errorLogger.Fatal(filename + " is not a regular file")
 	}
 }
 
@@ -58,7 +58,7 @@ func main() {
 		os.Exit(0)
 	}
 	if scriptName != "" {
-		panicIfScriptIsInvalid(scriptName)
+		fatalIfScriptIsInvalid(scriptName)
 	}
 
 	returnCode, path := execCmd(strings.Split(`git rev-parse --show-toplevel`, " "))
