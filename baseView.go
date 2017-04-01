@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jroimartin/gocui"
+	"github.com/mattn/go-runewidth"
 )
 
 type BaseView struct {
@@ -17,7 +18,16 @@ func (bv *BaseView) Show(message string) {
 			return err
 		}
 		v.Clear()
-		fmt.Fprintln(v, message)
+		width, _ := bv.size()
+		fmt.Fprintln(v, runewidth.Wrap(message, width))
 		return nil
 	})
+}
+
+func (bv *BaseView) size() (x, y int) {
+	view, err := bv.g.View(bv.id)
+	if err != nil {
+		return 0, 0
+	}
+	return view.Size()
 }
