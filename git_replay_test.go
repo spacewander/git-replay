@@ -153,3 +153,14 @@ func TestFormatStatusLine_EmptyStatus(t *testing.T) {
 	actual := formatStatusLine(width, status)
 	assert.Equal(t, "", actual)
 }
+
+func TestFormatStatusLine_NameOnlyStatus(t *testing.T) {
+	status := map[string]string{
+		"name1": "value",
+		"name2": "",
+		"name3": "value",
+	}
+	width := 36
+	actual := formatStatusLine(width, status)
+	assert.Equal(t, "  name1: value  name2  name3: value", actual)
+}

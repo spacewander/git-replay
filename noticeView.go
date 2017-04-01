@@ -7,7 +7,7 @@ import (
 
 type NoticeView struct {
 	BaseView
-	notice string
+	Notice string
 }
 
 func (nv *NoticeView) Layout(g *gocui.Gui) error {
@@ -17,7 +17,7 @@ func (nv *NoticeView) Layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		fmt.Fprintln(v, nv.notice)
+		fmt.Fprintln(v, nv.Notice)
 	}
 	return nil
 }

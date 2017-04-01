@@ -10,11 +10,20 @@ type ScrollView struct {
 }
 
 func (sv *ScrollView) Layout(g *gocui.Gui) error {
-	maxX, maxY := g.Size()
-	if _, err := g.SetView(sv.id, 0, 0, maxX*2/3, maxY-4); err != nil && err != gocui.ErrUnknownView {
+	ow, oh := 0, 0
+	width, height := sv.Size()
+	if _, err := g.SetView(sv.id, ow, oh,
+		ow+width+1, oh+height+1); err != nil && err != gocui.ErrUnknownView {
 		return err
 	}
 	return nil
+}
+
+// Size() will be used before Layout(*gocui.Gui) setup the view.
+// So we define here instead of depending on BaseView's size()
+func (sv *ScrollView) Size() (width, height int) {
+	maxX, maxY := sv.g.Size()
+	return maxX*2/3 - 1, maxY - 5
 }
 
 func (sv *ScrollView) ScrollToGraph(graph string) {
