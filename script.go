@@ -1,9 +1,10 @@
 package main
 
 import (
-	"github.com/Shopify/go-lua"
 	"reflect"
 	"strings"
+
+	"github.com/Shopify/go-lua"
 )
 
 var (

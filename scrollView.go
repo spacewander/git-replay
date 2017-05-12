@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/jroimartin/gocui"
 	"regexp"
+
+	"github.com/jroimartin/gocui"
 )
 
 type ScrollView struct {

@@ -1,11 +1,12 @@
 package main
 
 import (
-	go_git "github.com/src-d/go-git"
 	"regexp"
+	"strings"
+
+	go_git "github.com/src-d/go-git"
 	"srcd.works/go-git.v4/plumbing"
 	"srcd.works/go-git.v4/plumbing/object"
-	"strings"
 )
 
 var (

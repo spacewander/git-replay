@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/jroimartin/gocui"
 	"regexp"
-	"srcd.works/go-git.v4/plumbing/object"
 	"time"
+
+	"github.com/jroimartin/gocui"
+	"srcd.works/go-git.v4/plumbing/object"
 )
 
 type CommitView struct {

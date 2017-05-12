@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/jroimartin/gocui"
-	"github.com/mattn/go-runewidth"
 	"sort"
 	"strings"
+
+	"github.com/jroimartin/gocui"
+	"github.com/mattn/go-runewidth"
 )
 
 type StatusLineView struct {

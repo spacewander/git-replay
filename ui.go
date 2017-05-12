@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/jroimartin/gocui"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jroimartin/gocui"
 )
 
 type SpeedControlSignal int
